@@ -1,131 +1,163 @@
 ## Project Overview
 - Kotlin (null-safety), Coroutines & Flow
 - Jetpack Compose (Material 3), Navigation-Compose
-- Hilt (DI con qualifiers para dispatchers)
-- Room (SQLite) como cache local
-- Retrofit + OkHttp + kotlinx.serialization para red
+- Hilt (DI with dispatcher qualifiers)
+- Room (SQLite) as local cache
+- Retrofit + OkHttp + kotlinx.serialization for networking
 - Clean Architecture + SOLID, MVVM, Single-Activity
-- Logging (Timber), Result/Either en `:core:common`
+- Logging (Timber), Result/Either in `:core:common`
 - Testing: JUnit, kotlinx-coroutines-test, Turbine, MockWebServer, Room in-memory
 
 ## Core Principles
-1. **Clean Architecture** con KISS y SOLID
-   - SRP, OCP, LSP, ISP, DIP aplicados a módulos/clases.
-2. **Composition over inheritance** (UI y diseño de módulos).
-3. **Business logic framework-agnostic** (Domain puro, sin Android/Retrofit/Room).
+1. **Clean Architecture** with KISS and SOLID
+    - SRP, OCP, LSP, ISP, DIP applied to modules/classes.
+2. **Composition over inheritance** (UI and module design).
+3. **Framework-agnostic business logic** (pure Domain; no Android/Retrofit/Room imports).
 4. **Strict call graph:**  
    MainActivity/MainNavHost → Screen (Compose) → ViewModel → UseCase → Repository → Data Sources (DAO/API).  
-   *Nunca* saltar capas ni cruzar llamadas entre capas.
-5. **Dependency Injection** mediante Hilt y constructores.
-6. **Pure entities** (modelos de dominio sin efectos colaterales).
-7. **Un ViewModel por pantalla** (destino). Componentes de UI son stateless (state hoisting).
-8. **Flows lifecycle-aware** en pantallas con `collectAsStateWithLifecycle`.
-9. **Error handling consistente** con tipo base y mapeos por capa.
-10. **Local-first + sync controlado** (UI desde Room, refresh remoto por reglas).
+   *Never* skip layers or call across layers.
+5. **Dependency Injection** via Hilt and constructor injection.
+6. **Pure entities** (domain models without side effects).
+7. **One ViewModel per screen** (destination). Leaf UI components are stateless (state hoisting).
+8. **Lifecycle-aware Flow consumption** in screens using `collectAsStateWithLifecycle`.
+9. **Consistent error handling** with a base error type and mappers per layer.
+10. **Local-first + controlled sync** (UI backed by Room; remote refresh by policy).
 
 ## Core Layers
 1. **Navigation / App (`:app`)**
-   - **Responsabilidad:** Orquestación de navegación y presentación.
-   - **Detalles:**
-      - Single-Activity con **MainActivity** alojando **MainNavHost()**.
-      - `BaseDestination` (sealed) con rutas/args (`Search`, `Details/{id}`).
-      - **ViewModel por destino** (`hiltViewModel()`), depende **solo de UseCases**.
-      - Mapeo `AppError → UiError` (mensajes/Retry).
-      - **API key**: vive en `:app` (secrets/env) y se inyecta hacia `:core:network`.
+    - **Responsibility:** Navigation orchestration & presentation glue.
+    - **Details:**
+        - Single-Activity with **MainActivity** hosting **MainNavHost()**.
+        - `BaseDestination` (sealed) with routes/args (`Search`, `Details/{id}`).
+        - **One ViewModel per destination** (`hiltViewModel()`), depends **only on UseCases**.
+        - Map `AppError → UiError` (messages/Retry actions).
+        - **API key** lives in `:app` (secrets/env) and is injected into `:core:network`.
+
 2. **UI (`:core:ui`)**
-   - **Responsabilidad:** Pantallas/componentes Compose **stateless**.
-   - **Detalles:**
-      - Una pantalla **completa** aquí (p.ej. `CountryDetailsScreen(state, onBack)`).
-      - La otra (Search) se construye en `:app` usando componentes exportados (`SearchBar`, `CountryCard`, `EmptyState`, `ErrorState`, `LoadingIndicator`).
-      - Sin acceso a Data ni conocimiento de navegación.
+    - **Responsibility:** Stateless Compose screens/components.
+    - **Details:**
+        - One **full screen** implemented here (e.g., `CountryDetailsScreen(state, onBack)`).
+        - The other (Search) is composed in `:app` using exported components (`SearchBar`, `CountryCard`, `EmptyState`, `ErrorState`, `LoadingIndicator`).
+        - No Data access, no navigation knowledge.
+
 3. **Domain (`:core:domain`)**
-   - **Responsabilidad:** Reglas y contratos (puro Kotlin).
-   - **Subcarpetas:**
-      - **Entities:** `Country`, `CountrySummary`.
-      - **Repositories (interfaces):** `CountriesRepository`.
-      - **UseCases:** `RefreshAllCountries`, `ObserveCountries`, `SearchCountries`, `GetCountryDetails` (1 clase/archivo).
-   - **Detalles:** Retornan `Result<T>` (o `Either<AppError,T>`). Sin imports de Android/Retrofit/Room.
+    - **Responsibility:** Rules and contracts (pure Kotlin).
+    - **Subfolders:**
+        - **Entities:** `Country`, `CountrySummary`.
+        - **Repositories (interfaces):** `CountriesRepository`.
+        - **UseCases:** `RefreshAllCountries`, `ObserveCountries`, `SearchCountries`, `GetCountryDetails` (1 class/file).
+    - **Details:** Return `Result<T>` (or `Either<AppError,T>`). No Android/Retrofit/Room imports.
+
 4. **Data (`:core:data`)**
-   - **Responsabilidad:** Implementaciones de repos, mappers y Room.
-   - **Detalles:** `CountryEntity`, `CountryDao`, `AppDatabase`, mapeos DTO↔Entity↔Domain, `CountriesRepositoryImpl`.
+    - **Responsibility:** Repository implementations, mappers, Room orchestration.
+    - **Details:** `CountryEntity`, `CountryDao`, `AppDatabase`, DTO↔Entity↔Domain mappers, `CountriesRepositoryImpl`.
+
 5. **Network (`:core:network`)**
-   - **Responsabilidad:** Cliente HTTP y contratos de API.
-   - **Detalles:** Retrofit/OkHttp, interceptores (logging debug y **auth con API key** inyectada desde `:app`), `RestCountriesApi`.
+    - **Responsibility:** HTTP client setup and API contracts.
+    - **Details:** Retrofit/OkHttp, interceptors (debug logging and **auth with API key** injected from `:app`), `RestCountriesApi`.
+
 6. **Common (`:core:common`)**
-   - **Responsabilidad:** Utilidades transversales.
-   - **Detalles:** `Result/Either`, **`AppError` (sealed)** con `NetworkError`, `ServerError(code,body)`, `NotFound`, `SerializationError`, `Timeout`, `UnknownError`; qualifiers `@IODispatcher`, `@DefaultDispatcher`, `@MainDispatcher`; helpers (normalización de búsqueda).
+    - **Responsibility:** Cross-cutting utilities.
+    - **Details:** `Result/Either`, **`AppError` (sealed)** with `NetworkError`, `ServerError(code,body)`, `NotFound`, `SerializationError`, `Timeout`, `UnknownError`; qualifiers `@IODispatcher`, `@DefaultDispatcher`, `@MainDispatcher`; helpers (search normalization).
 
 ## Infrastructure & Utilities
 1. **Clients (`:core:network`)**
-   - Retrofit + converter kotlinx.serialization; OkHttp con timeouts e interceptores.
-   - **Base URL** en `:core:network`; **API key** inyectada desde `:app`.
+    - Retrofit + kotlinx.serialization converter; OkHttp with timeouts and interceptors.
+    - **Base URL** defined in `:core:network`; **API key** injected from `:app`.
+    - **Version lock:** Retrofit/OkHttp/kotlinx-serialization artifacts **must** use versions from `gradle/libs.versions.toml`; if a key is missing, propose it and wait for approval.
+
 2. **Database (`:core:data`)**
-   - Room DB; índices en `searchName`/`nameCommon`; Flows en DAO; tests in-memory.
+    - Room DB; indices on `searchName`/`nameCommon`; DAO returns Flows; in-memory tests.
+
 3. **Coroutines**
-   - ViewModels reciben **dispatchers inyectados** (Hilt). I/O con `withContext(IODispatcher)`.
-   - Estado con `StateFlow` + `stateIn(SharingStarted.WhileSubscribed(5000))`.
+    - ViewModels receive **injected dispatchers** (Hilt). I/O via `withContext(IODispatcher)`.
+    - State with `StateFlow` + `stateIn(SharingStarted.WhileSubscribed(5000))`.
 
 ## Configuration Management
 1. **API Key & Base URL**
-   - API key en `:app` (secrets/env) → interceptor de `:core:network` (Hilt).
-   - Base URL configurada en `:core:network` (BuildConfig/DI). No secrets en VCS.
+    - API key in `:app` (secrets/env) → injected into `:core:network` interceptor (Hilt).
+    - Base URL configured in `:core:network` (BuildConfig/DI). No secrets in VCS.
+
 2. **Build Types/Flavors**
-   - Configs de red/DB **por DI**; evitar acoplar BuildConfig entre módulos.
+    - Network/DB configs via DI; avoid cross-module BuildConfig coupling.
 
 ## Data Access & Sync Policy
 1. **Local-first**
-   - UI observa Room (Flow) y Compose consume con `collectAsStateWithLifecycle`.
-2. **Arranque**
-   - DB vacía → fetch `/v3.1/all` → upsert → Room emite.
-   - DB con datos → mostrar de inmediato; refrescar si **TTL** (~24h) vencido (background).
-3. **Búsqueda realtime (≥2 chars)**
-   - `<2` → `flowAllOrdered()`; `≥2` → `flowSearch(queryNorm LIKE %q%)`.
-   - **Fallback remoto** `/v3.1/name/{q}` solo si local emite vacío y `q.length ≥ 2` → upsert.
+    - UI observes Room (Flow) and Compose consumes with `collectAsStateWithLifecycle`.
+
+2. **App start**
+    - DB empty → fetch `/v3.1/all` → upsert → Room emits.
+    - DB has data → show immediately; refresh if **TTL** (~24h) is expired (background).
+
+3. **Real-time search (≥ 2 chars)**
+    - `< 2` → `flowAllOrdered()`; `≥ 2` → `flowSearch(queryNorm LIKE %q%)`.
+    - **Remote fallback** `/v3.1/name/{q}` only if local emits empty and `q.length ≥ 2` → upsert.
+
 4. **Upsert policy**
-   - Upsert por `cca3`; mapear **solo** campos requeridos por caso de uso.
+    - Upsert by `cca3`; map **only** fields required by each use case.
+
 5. **Pull-to-refresh**
-   - `RefreshAllCountries(force=true)`; UI sigue local-first.
+    - `RefreshAllCountries(force=true)`; UI remains local-first.
 
 ## Testing Strategy
 1. **ViewModels**
-   - `SearchViewModel`: debounce (~300ms), min-length (≥2), success/empty/error, refresh.
-   - `DetailsViewModel`: success/error (id inválido).
-   - `runTest` + `StandardTestDispatcher`, asserts con Turbine.
+    - `SearchViewModel`: debounce (~300ms), min length (≥2), success/empty/error, refresh.
+    - `DetailsViewModel`: success/error (invalid id).
+    - `runTest` + `StandardTestDispatcher`; assertions with Turbine.
+
 2. **UseCases**
-   - Reglas y **propagación de AppError** con repos fakes.
+    - Rules and **AppError propagation** using repository fakes.
+
 3. **Mappers**
-   - DTO→Entity y Entity↔Domain (nullables/bordes).
-4. **Repositories (preferente integración)**
-   - Room in-memory + MockWebServer (/all, /name/{q}); verificar TTL y upsert.
-5. **Compose (opcional)**
-   - UI snapshot/interaction mínimos.
+    - DTO→Entity and Entity↔Domain (nullability/edge cases).
+
+4. **Repositories (prefer integration)**
+    - Room in-memory + MockWebServer (/all, /name/{q}); verify TTL & upsert behavior.
+
+5. **Compose (optional)**
+    - Minimal snapshot/interaction tests.
 
 ## Naming Conventions
-- **Módulos:** `:app`, `:core:ui`, `:core:domain`, `:core:data`, `:core:network`, `:core:common`
-- **UseCases:** `XxxYyyUseCase` (1 clase/archivo)
+- **Modules:** `:app`, `:core:ui`, `:core:domain`, `:core:data`, `:core:network`, `:core:common`
+- **UseCases:** `XxxYyyUseCase` (1 class/file)
 - **Repos:** `CountriesRepository` / `CountriesRepositoryImpl`
 - **DAOs:** `CountryDao`
 - **Entities/DTOs:** `CountryEntity` / `CountryDto`
 - **Domain models:** `Country`, `CountrySummary`
 - **ViewModels:** `SearchViewModel`, `DetailsViewModel`
 - **Screens/Components:** `CountryDetailsScreen`, `SearchScreen`, `CountryCard`, `SearchBar`, `EmptyState`, `ErrorState`, `LoadingIndicator`
-- **Errores:** `AppError` (data/domain), `UiError` (presentación)
+- **Errors:** `AppError` (data/domain), `UiError` (presentation)
 - **Dispatchers:** `IODispatcher`, `DefaultDispatcher`, `MainDispatcher`
 
 ## Versioning Policy
-1. **Source of truth:** `gradle/libs.versions.toml`.
-2. **Baseline:** usar las versiones **ya presentes** en el proyecto (sin subir/bajar).
-3. **Compose:** usar **Compose BOM**; sin versiones explícitas en artefactos Compose.
-4. **Consistencia:** todos los módulos referencian el **catálogo**.
-5. **Herramientas:** no modificar AGP/Kotlin/Compose/JDK ni SDK local.
-6. **Nuevas libs:** añadir al catálogo respetando baseline (sin “arrastrar” upgrades).
-7. **Verificación:** tras cambios, correr `:app:assembleDebug` y `test`.
+1. **Single source of truth:** `gradle/libs.versions.toml` is the only source of versions. **Do not** upgrade/downgrade without approval.
+2. **Use the existing catalog keys only.** If a dependency has no key:
+    - Propose adding it (version from the existing catalog if available, or mark as `PENDING_VERSION`) and **wait for approval**.
+3. **Compose:** Use **Compose BOM**; do not set versions on Compose artifacts.
+4. **Tooling:** Do not modify AGP/Kotlin/Compose/JDK or local SDK config.
+5. **Consistency:** All modules must depend on the catalog (no hardcoded versions).
+6. **Verification:** After dependency changes, run `:app:assembleDebug` and `test`.
+7. **TechContext Mirror:** `memory-bank/techContext.md` **must exactly mirror** catalog versions/artifacts (no invented values).
 
 ## Images (Library, SVG, caching)
-1. **Librería:** **Coil 2.7.0** (compatible con tu Compose BOM `2024.09.00`).
-   - `io.coil-kt:coil-compose:2.7.0`
-   - `io.coil-kt:coil-svg:2.7.0`
-2. **SVG vs PNG:** preferir SVG (nitidez), fallback a PNG si falla.
-3. **ImageLoader & cache:** reutilizar **OkHttpClient** de `:core:network` para compartir cache/timeout/logging.
-4. **UI API:** `AsyncImage` (stateless), `contentDescription`, placeholders de loading/error.
-5. **Tests:** al menos un caso de carga SVG real y fallback de error.
+1. **Library:** **Coil 2.7.0** (compatible with Compose BOM `2024.09.00`).
+    - `io.coil-kt:coil-compose:2.7.0`
+    - `io.coil-kt:coil-svg:2.7.0`
+2. **SVG vs PNG:** prefer SVG for sharpness; fallback to PNG if decoding fails.
+3. **ImageLoader & cache:** reuse the **OkHttpClient** from `:core:network` to share disk cache/timeouts/logging.
+4. **UI API:** `AsyncImage` (stateless), proper `contentDescription`, loading/error placeholders aligned with `UiError`.
+5. **Tests:** at least one case loading a real SVG flag and an error/fallback case.
+
+## Compliance & Execution Rules
+1. **Preview required (docs):** Any `memory-bank/*.md` or `README` changes must be presented as a **PREVIEW** for approval before writing to disk.
+2. **No improvisation:** Do not invent endpoints, routes, module names, or dependencies. If something is missing, request clarification or propose a minimal delta and wait for approval.
+3. **Architecture checks:**
+    - Allowed dependency graph:
+        - `:app` → `:core:ui`, `:core:domain`, `:core:common`
+        - `:core:data` → `:core:domain`, `:core:network`, `:core:common`
+        - `:core:ui` → `:core:common`
+        - `:core:domain` → `:core:common`
+        - `:core:network` → `:core:common`
+    - **Forbidden:** `:app` → `:core:data`, and any `:core:ui ↔ :core:data`.
+4. **Step-by-step execution:** Work in atomic Steps; after each Step, run `./gradlew :app:assembleDebug` and `./gradlew test`, show diffs, and update `memory-bank/activeContext.md` and `memory-bank/progress.md`.
+5. **Secrets:** Never hardcode API keys; inject them from `:app` via DI. Never commit secrets to VCS.
