@@ -1,0 +1,22 @@
+# Technical Context
+
+## Version Catalog
+- agp = 8.10.1
+- kotlin = 2.0.21
+- coreKtx = 1.17.0
+- junit = 4.13.2
+- junitVersion = 1.3.0
+- espressoCore = 3.7.0
+- lifecycleRuntimeKtx = 2.9.4
+- activityCompose = 1.11.0
+- composeBom = 2024.09.00
+- hilt = 2.52
+- room = 2.6.1
+- retrofit = 2.11.0
+- okhttp = 4.12.0
+- serialization = 1.7.3
+- coroutines = 1.9.0
+- turbine = 1.0.0
+- mockwebserver = 4.12.0
+- coil2 = 2.7.0
+- lifecycleCompose = 2.9.4
