@@ -2,15 +2,12 @@
 
 ## Module Dependencies
 Allowed:
-- :app → :core:ui, :core:domain, :core:common
-- :core:data → :core:domain, :core:network, :core:common
-- :core:ui → :core:common
+- :app → :core:domain, :core:common
+- :core:data → :core:domain, :core:common
 - :core:domain → :core:common
-- :core:network → :core:common
 
 Forbidden:
 - :app → :core:data
-- :core:ui ↔ :core:data
 
 ## ViewModel Policy
 - One ViewModel per navigation destination.

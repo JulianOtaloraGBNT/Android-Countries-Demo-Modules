@@ -1,10 +1,20 @@
 # Project Brief
 
 ## Purpose
-Android Clean Architecture demo with Jetpack Compose and REST integration
+Android Clean Architecture demo with externalized AAR libraries and SDK consumption patterns.
 
-## Scope
-- Single Activity (MainActivity) + Navigation Compose
-- Layer-separated modules (:app, :core:ui, :core:domain, :core:data, :core:network, :core:common)
-- 24h local data TTL with Room
-- Retrofit API client with :app-injected API key
+## Core Structure
+- `:app` (navigation & presentation glue)
+- `:core:domain` (entities, repository contracts, use cases)
+- `:core:data` (repositories, mappers; optional Room outside SDK)
+- `:core:common` (Result/Either, AppError, dispatcher qualifiers, shared utils)
+
+## Externalized Libraries (AAR Consumption)
+- `countries-data-sdk.aar`: Networking/persistence SDK wrapped by `:core:data`
+- `countries-ui-artifact.aar`: Stateless Compose UI consumed by `:app`
+
+## Architecture Constraints
+- **Call graph:** `MainActivity/MainNavHost → Screen → ViewModel → UseCase → Repository → Data Source`
+- **DI:** Hilt with constructor injection and dispatcher qualifiers
+- **Error handling:** Retrofit/OkHttp → AppError (sealed) → UiError (user-facing + retry)
+- **Local-first:** UI observes Room-backed state with TTL-based refresh policy

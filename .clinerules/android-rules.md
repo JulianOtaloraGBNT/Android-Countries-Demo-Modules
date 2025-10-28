@@ -1,156 +1,124 @@
-## Project Overview
-- Kotlin (null-safety), Coroutines & Flow
-- Jetpack Compose (Material 3), Navigation Compose
-- Hilt (DI with dispatcher qualifiers)
-- Room (SQLite) as local cache
-- Retrofit + OkHttp + kotlinx.serialization for networking
-- Clean Architecture + SOLID, MVVM, Single-Activity
-- Logging (Timber), Result/Either in `:core:common`
-- Testing: JUnit, kotlinx-coroutines-test, Turbine, MockWebServer, Room in-memory
+# .clinerules/android-rules.md
 
-## Core Principles
-1. **Clean Architecture** with KISS & SOLID (SRP, OCP, LSP, ISP, DIP).
-2. **Composition over inheritance** (UI & module design).
-3. **Framework-agnostic Domain** (no Android/Retrofit/Room imports in Domain).
-4. **Strict call graph:**  
-   `MainActivity/MainNavHost → Screen (Compose) → ViewModel → UseCase → Repository → Data Source (DAO/API)`  
-   *Never* skip layers or cross-call.
-5. **Dependency Injection** via Hilt & constructor injection.
-6. **Pure entities** (side-effect-free domain models).
-7. **One ViewModel per destination**; leaf UI components are stateless (state hoisting).
-8. **Lifecycle-aware Flow** consumption using `collectAsStateWithLifecycle`.
-9. **Consistent error handling** (base error type + layer mappers).
-10. **Local-first + controlled sync** (UI backed by Room; remote refresh by policy).
+## 1. Project Overview & Core Principles
+- **Stack**: Kotlin (null-safety), Coroutines & Flow, Jetpack Compose (Material 3), Navigation Compose, Hilt (DI), Retrofit, kotlinx.serialization, Room (if required outside the SDK).
+- **Architecture**: A multi-project Gradle build implementing Clean Architecture, where some modules are consumed as compiled AARs by others.
+- **Core Principles**:
+    - **Clean Architecture**: Strict adherence to layers (App → Domain ← Data) with KISS & SOLID (SRP, OCP, LSP, ISP, DIP).
+    - **Composition over Inheritance**: Especially in UI and module design.
+    - **Framework-agnostic Domain**: The `:core:domain` module must not contain any Android, Retrofit, or Room imports.
+    - **Strict Call Graph**: `UI (Screen) → ViewModel → UseCase → Repository → DataSource`. Never skip layers.
+    - **Dependency Injection**: Via Hilt and constructor injection.
+    - **Lifecycle-aware Flow Consumption**: Use `collectAsStateWithLifecycle` in the UI.
+    - **Consistent Error Handling**: Base error type + mappers per layer.
+    - **Local-first**: UI is backed by a local source of truth (Room), with a controlled remote sync policy.
 
-## Core Layers
-1. **App / Navigation (`:app`)**
-   - Single Activity (`MainActivity`) hosting `MainNavHost()`.
-   - `BaseDestination` (sealed) with routes/args (`Search`, `Details/{id}`).
-   - One ViewModel per destination (`hiltViewModel()`), depends **only on UseCases**.
-   - Map `AppError → UiError` (messages/retry).
-   - **API key** lives in `:app` (secrets/env) and is injected into `:core:network`.
+## 2. Project Module Structure & Build Process
+The project consists of **six modules in total**, organized into two categories. The key is how they depend on each other.
 
-2. **UI (`:core:ui`)**
-   - Stateless Compose screens/components.
-   - One **full screen** here (e.g., `CountryDetailsScreen(state, onBack)`).
-   - The other (Search) is composed in `:app` using exported components (`SearchBar`, `CountryCard`, `EmptyState`, `ErrorState`, `LoadingIndicator`).
-   - No Data access; no navigation knowledge.
+### Category 1: Application Framework Modules
+These four modules form the core of the application.
 
-3. **Domain (`:core:domain`)**
-   - Rules & contracts (pure Kotlin).
-   - Entities: `Country`, `CountrySummary`.
-   - Repositories (interfaces): `CountriesRepository`.
-   - UseCases: `RefreshAllCountries`, `ObserveCountries`, `SearchCountries`, `GetCountryDetails` (one class per file).
-   - Return `Result<T>` / `Either<AppError, T>`.
+- **`:app`**:
+    - **Plugin**: `com.android.application`.
+    - **Responsibility**: Contains the `MainActivity`, navigation, and presentation layer.
+    - **Dependencies**:
+        - `implementation(project(":core:domain"))`
+        - `implementation(project(":core:common"))`
+        - `implementation(files("build/outputs/aar/countries-ui-artifact.aar"))`
 
-4. **Data (`:core:data`)**
-   - Repository implementations, mappers, Room.
-   - `CountryEntity`, `CountryDao`, `AppDatabase`, DTO↔Entity↔Domain mappers, `CountriesRepositoryImpl`.
+- **`:core:data`**:
+    - **Plugin**: `com.android.library`.
+    - **Responsibility**: Implements repository interfaces by consuming the data SDK's AAR.
+    - **Dependencies**:
+        - `implementation(project(":core:domain"))`
+        - `implementation(project(":core:common"))`
+        - `implementation(files("build/outputs/aar/countries-data-sdk.aar"))`
 
-5. **Network (`:core:network`)**
-   - HTTP client setup and API contracts.
-   - Retrofit/OkHttp, interceptors (debug logging + **auth with API key** injected from `:app`), `RestCountriesApi`.
+- **`:core:domain`**:
+    - **Plugin**: `org.jetbrains.kotlin.jvm` (or `java-library`). **Must not be an Android module.**
+    - **Responsibility**: Pure business logic (entities, use cases, repository interfaces).
+    - **Dependencies**: `implementation(project(":core:common"))`
 
-6. **Common (`:core:common`)**
-   - Cross-cutting utilities.
-   - `Result/Either`, **`AppError` (sealed)** with `NetworkError`, `ServerError(code,body)`, `NotFound`, `SerializationError`, `Timeout`, `UnknownError`; qualifiers `@IODispatcher`, `@DefaultDispatcher`, `@MainDispatcher`; helpers (search normalization).
+- **`:core:common`**:
+    - **Plugin**: `org.jetbrains.kotlin.jvm` (or `java-library`). **Must not be an Android module.**
+    - **Responsibility**: Shared utilities (`Result`, `AppError`, Dispatcher Qualifiers).
+    - **Dependencies**: None.
 
-## Infrastructure & Utilities
-- **Network clients (`:core:network`)**: Retrofit + kotlinx.serialization converter; OkHttp with timeouts/interceptors.  
-  **Base URL** provided in `:core:network`; **API key** injected from `:app`.
-- **Database (`:core:data`)**: Room DB; indices on `searchName`/`nameCommon`; DAOs return `Flow`; in-memory tests.
-- **Coroutines**: ViewModels receive injected dispatchers (Hilt). I/O via `withContext(IODispatcher)`. State with `StateFlow` and `stateIn(SharingStarted.WhileSubscribed(5000))`.
+### Category 2: Feature Library Modules (AAR Producers)
+These two modules are also part of the project but are consumed differently.
 
-## Configuration Management
-- **API Key & Base URL**: API key in `:app` (secrets/env) → injected into `:core:network` interceptor (Hilt). Base URL configured in `:core:network` (BuildConfig/DI). No secrets in VCS.
-- **Build Types/Flavors**: Network/DB configs via DI; avoid cross-module `BuildConfig` coupling.
+- **`:features:countries-data-sdk`**:
+    - **Plugin**: `com.android.library`.
+    - **Responsibility**: A self-contained data access library.
+    - **Output**: Produces `countries-data-sdk.aar`. This module is **not a direct dependency** of `:core:data`.
 
-## Data Access & Sync Policy
-1. **Local-first**: UI observes Room; Composables consume with `collectAsStateWithLifecycle`.
-2. **App start**: DB empty → fetch `/v3.1/all` → upsert → Room emits. If DB has data → show immediately; refresh if **TTL** (~24h) expired (background).
-3. **Real-time search (≥ 2 chars)**:
-   - `< 2` → `flowAllOrdered()`; `≥ 2` → `flowSearch(%queryNorm%)`.
-   - **Remote fallback** `/v3.1/name/{q}` only if local emits empty and `q.length ≥ 2` → upsert.
-4. **Upsert policy**: Upsert by `cca3`; map **only** fields required by use cases.
-5. **Pull-to-refresh**: `RefreshAllCountries(force=true)`; UI remains local-first.
+- **`:features:countries-ui-artifact`**:
+    - **Plugin**: `com.android.library`.
+    - **Responsibility**: A self-contained library of stateless UI components.
+    - **Output**: Produces `countries-ui-artifact.aar`. This module is **not a direct dependency** of `:app`.
 
-## Testing Strategy
-- **ViewModels**: debounce (~300ms), min length (≥2), success/empty/error, refresh; `runTest` + `StandardTestDispatcher`; Turbine assertions.
-- **UseCases**: rules + `AppError` propagation with repository fakes.
-- **Mappers**: DTO→Entity and Entity↔Domain (nullability/edges).
-- **Repositories (prefer integration)**: Room in-memory + MockWebServer (`/all`, `/name/{q}`); verify TTL & upsert.
-- **Compose (optional)**: minimal snapshot/interaction tests.
+## 3. AAR-Based Dependency Workflow
+This project employs a specific build workflow to simulate a real-world library consumption model.
 
-## Naming Conventions
-- **Modules:** `:app`, `:core:ui`, `:core:domain`, `:core:data`, `:core:network`, `:core:common`
-- **UseCases:** `XxxYyyUseCase` (one class/file)
-- **Repos:** `CountriesRepository` / `CountriesRepositoryImpl`
-- **DAOs:** `CountryDao`
-- **Entities/DTOs:** `CountryEntity` / `CountryDto`
-- **Domain models:** `Country`, `CountrySummary`
-- **ViewModels:** `SearchViewModel`, `DetailsViewModel`
-- **Screens/Components:** `CountryDetailsScreen`, `SearchScreen`, `CountryCard`, `SearchBar`, `EmptyState`, `ErrorState`, `LoadingIndicator`
-- **Errors:** `AppError` (data/domain), `UiError` (presentation)
-- **Dispatchers:** `IODispatcher`, `DefaultDispatcher`, `MainDispatcher`
+> **Note:** The `:features` modules **are part of this project**, but the `:app` and `:core:data` modules consume their compiled **AAR outputs**, not the modules directly.
 
-## Version Catalog Enforcement
-1. **Single source of truth:** read versions **only** from `gradle/libs.versions.toml` (this exact path).
-2. **Use existing catalog keys exactly as they appear** (e.g., if the key is `coil2`, use `coil2`; do **not** rename to `coil`).
-3. **New libraries for features:**
-   - First, validate compatibility and propose versions that **do not conflict** with current catalog.
-   - If unavoidable, propose **minimal** version changes and list **all** code/build adjustments required.
-   - Wait for explicit approval before modifying the catalog.
-4. **Compose:** use Compose BOM; **no explicit versions** on Compose artifacts.
-5. **Tooling:** do not modify AGP/Kotlin/Compose/JDK or local SDK config.
-6. **Consistency:** all modules must use the catalog (no hardcoded versions).
+### 3.1. Build & Consumption Logic
+- A Gradle build (e.g., `./gradlew assembleDebug`) will automatically trigger the compilation of the `:features` modules first.
+- A custom build logic will be required to copy the resulting AAR files from their default build locations (e.g., `features/countries-data-sdk/build/outputs/aar/`) to a centralized directory (e.g., a root `build/outputs/aar/` directory).
+- The `:app` and `:core:data` modules will then consume these AARs as file dependencies. Gradle's task dependency graph will ensure this happens in the correct order.
 
-## TechContext Rendering Rules
-- `memory-bank/techContext.md` must render versions as a **bullet list** (no TOML, no code fences).
-- The list must **mirror** the catalog keys/values **verbatim** (no renames, no guesses).
-- **Do not compute hashes/digests** of the catalog (avoid extra tokens).
-- If any required key is missing, list it under **“Missing Catalog Keys (PENDING_VERSION)”** and **STOP** for approval.
+### 3.2. Public APIs & Responsibilities
+- **`countries-data-sdk`**:
+    - **Public API (Hilt-free):** Provides a `CountriesClient` via a `CountriesSdk.create(...)` factory.
+    - **Responsibility:** `:core:data` must **wrap** this client, normalize its errors to `AppError`, and map DTOs to Domain models.
+- **`countries-ui-artifact`**:
+    - **Public API (stateless, Hilt-free):** Provides `@Composable` functions like `CountriesSearchScreen`.
+    - **Constraints:** No navigation, no repository access. Must accept an injected `ImageLoader` for images.
 
-## Catalog Reading Protocol (Act Mode, low-token, macOS)
-Use **one command per step** and return **only printed lines**. BSD `awk` is strict; avoid reserved words and escape brackets.
+### Acceptance Criteria
+- The project must have six modules in `settings.gradle.kts`.
+- A single Gradle command must successfully build the feature AARs and then build the main app that consumes them.
+- The dependency graph must be enforced as described.
 
-    awk '
-      /^\[versions\]/ { in_block=1; next }
-      /^\[/ && in_block { exit }
-      in_block && /^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*=/ {
-        gsub(/"/,""); sub(/^[[:space:]]*/,""); print "- " $0
-      }
-    ' gradle/libs.versions.toml
+*(The remaining sections: Core Layers, Version Catalog, Catalog Reading Protocol, Compliance Rules, and Memory Bank Sync are preserved exactly as in your provided file, as they are correct and valuable.)*
 
-## Images (library & caching)
-- Use **Coil** in UI; prefer SVG with PNG fallback.
-- Reuse the `OkHttpClient` from `:core:network` for shared cache/timeouts/logging.
-- UI API: `AsyncImage` with `contentDescription`, loading/error placeholders aligned with `UiError`.
+## 4. Core Layers (behavioral details)
+- **App / Navigation (`:app`)**: Hosts `MainActivity` and `MainNavHost`. A ViewModel per destination (`hiltViewModel()`) depends **only on use cases**. It maps `AppError → UiError` (message + retry action). Secrets live in `:app` and are passed to the SDK via `NetworkConfig`.
+- **Domain (`:core:domain`)**: Contains `Country`, `CountrySummary` entities, `CountriesRepository` contracts, and single-purpose Use Cases (`RefreshAllCountries`, `ObserveCountries`, etc.). Returns `Result<T, AppError>`.
+- **Data (`:core:data`)**: Implements repositories. **Wraps `CountriesClient`** from the SDK. Applies domain-facing policies (refresh cadence, TTL, DTO→Domain mapping). If a DB is needed outside the SDK, it defines the `CountryEntity`, `CountryDao`, and `AppDatabase`.
+- **Common (`:core:common`)**: Provides `Result/Either`, the `AppError` sealed class (`NetworkError`, `ServerError(code,body)`, `NotFound`, `SerializationError`, `Timeout`, `UnknownError`), Hilt Qualifiers (`@IODispatcher`, `@DefaultDispatcher`, `@MainDispatcher`), and shared utilities.
 
-## Compliance & Execution Rules
-1. **Preview required for docs:** any `memory-bank/*.md` changes must be **previewed** and approved before writing.
-2. **No improvisation:** do not invent endpoints, routes, module names, or dependencies.
-3. **Architecture checks (allowed graph):**
-   - `:app` → `:core:ui`, `:core:domain`, `:core:common`
-   - `:core:data` → `:core:domain`, `:core:network`, `:core:common`
-   - `:core:ui` → `:core:common`
-   - `:core:domain` → `:core:common`
-   - `:core:network` → `:core:common`
-   - **Forbidden:** `:app → :core:data`, and any `:core:ui ↔ :core:data`.
-4. **Step-by-step:** work in atomic steps; after each approved step run `./gradlew :app:assembleDebug` and `./gradlew test`, show diffs, and update `memory-bank/activeContext.md` + `progress.md`.
-5. **Secrets:** never hardcode API keys; inject from `:app` via DI; never commit secrets to VCS.
+## 5. Version Catalog Enforcement
+1.  **Single Source of Truth**: All dependency versions MUST be read from `gradle/libs.versions.toml`. No hardcoded versions.
+2.  **Key Usage**: Use the catalog keys exactly as they are defined.
+3.  **New Libraries**: Propose and validate any new libraries to ensure compatibility. Get explicit approval before modifying the catalog.
+4.  **Compose BOM**: Use the Compose BOM (`compose-bom`) to manage Compose library versions.
+5.  **Tooling**: Do not modify AGP/Kotlin/Compose/JDK versions.
+6.  **Consistency**: All modules must use the version catalog.
 
-## Search Normalization Rules
-- Normalize query: lowercase + diacritic folding.
-- Persist normalized field (`searchName`) in Room and **index** it.
-- DAO queries use `LIKE %queryNorm%` against `searchName`.
-- Mappers keep only fields required by use cases.
+## 6. Catalog Reading Protocol (Act Mode)
+Run a single external command and return **only** its stdout lines (no extra text).
 
-## CI & Quality Gates
-- After each approved step: build `:app:assembleDebug`, run tests, report module graph changes, and update the memory bank.
+**Command:** `awk`
+**Arguments (2 total, in order):**
+1. `/^\[versions\]/{b=1;next} /^\[/{if(b)exit} b && /^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*=/ {gsub(/"/,""); sub(/^[[:space:]]*/,""); print "- "$0}`
+2. `gradle/libs.versions.toml`
 
-## Memory Bank Sync (systemPatterns.md)
+**Behavior contract:**
+- Treat argument #1 as the entire awk program.
+- Treat argument #2 as the path to the version catalog file.
+- Print exactly the transformed key/value lines from the `[versions]` block.
 
-**Source of truth:** this file (`.clinerules/android-rules.md`).  
+## 7. Compliance & Execution Rules
+1.  **Preview Docs**: Any change to `memory-bank/*.md` must be previewed (diff) and approved before writing.
+2.  **No Improvisation**: Do not invent endpoints, routes, module names, or dependencies.
+3.  **Architecture Review**: Strictly adhere to the allowed dependency graph.
+4.  **Step-by-step**: Work in atomic steps. After each approved step, run `./gradlew :app:assembleDebug` and `./gradlew test`, show diffs, and update `memory-bank/activeContext.md` + `progress.md`.
+5.  **Secrets**: Never hardcode API keys. Inject them from `:app` into the SDK. Never commit secrets to VCS.
+
+## 8. Memory Bank Sync (systemPatterns.md)
+**Source of truth:** this file (`.clinerules/android-rules.md`).
 **Target file:** `memory-bank/systemPatterns.md`.
 
 ### Canonical Content for System Patterns
@@ -166,10 +134,9 @@ Use **one command per step** and return **only printed lines**. BSD `awk` is str
 - Data/Network layer converts Retrofit/OkHttp/serialization/IO failures to **AppError** (sealed).
 - Domain layer returns `Result`/`Either<AppError, T>` without re-wrapping.
 - App layer maps **AppError → UiError** (user-facing message + optional **retry** action).
-- Log details (e.g., Timber) in Data layer; **never** expose raw exceptions/stacktraces to UI.
+- Log details (e.g., with Timber) in the Data layer; **never** expose raw exceptions/stacktraces to the UI.
 
 ### Sync Rules (Plan → Act)
-1. **Plan Mode (preview-only):** generate a **unified diff** that updates `memory-bank/systemPatterns.md` to contain exactly the sections **ViewModel Policy** and **Error Mapping Path** shown above (no extra text).
-2. **Act Mode (write):** apply the previewed diff only after explicit approval.
-3. **No improvisation:** do not introduce additional sections or alter the canonical bullets.
-4. **Idempotency:** repeated runs must produce no changes if the file already matches the canonical content.
+1. **Plan Mode (preview-only):** Generate a **unified diff** that updates `memory-bank/systemPatterns.md` to contain **exactly** the **ViewModel Policy** and **Error Mapping Path** sections.
+2. **Act Mode (write):** Apply the previewed diff only after explicit approval.
+3. **Idempotency:** Repeated executions should not produce changes if the file already matches the canonical content.

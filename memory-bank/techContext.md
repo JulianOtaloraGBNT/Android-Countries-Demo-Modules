@@ -1,6 +1,5 @@
 # Technical Context
 
-## Version Catalog
 - agp = 8.10.1
 - kotlin = 2.0.21
 - coreKtx = 1.17.0
