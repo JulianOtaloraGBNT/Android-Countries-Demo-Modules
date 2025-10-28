@@ -1,15 +1,33 @@
+# === Gradle / Build ===
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# === Android Studio / IDE ===
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+*.ipr
+*.iws
+.fleet/
+.cxx/
+.kotlinc/
+out/
+
+# === OS / Misc ===
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# === Local config (do not commit secrets) ===
 local.properties
+
+# === Generated libraries (rebuilt by tasks) ===
+libs/*.aar
+libs/*.jar
+# Keep the folder tracked
+!libs/.gitkeep
+
+# === Reports / Captures ===
+captures/
+**/reports/
+**/lint/intermediates/
+**/lint/reports/
