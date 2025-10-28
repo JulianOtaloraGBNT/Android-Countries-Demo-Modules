@@ -1,5 +1,6 @@
-# Technical Context
+# Tech Context
 
+## Version Catalog (from gradle/libs.versions.toml)
 - agp = 8.10.1
 - kotlin = 2.0.21
 - coreKtx = 1.17.0
@@ -19,3 +20,7 @@
 - mockwebserver = 4.12.0
 - coil2 = 2.7.0
 - lifecycleCompose = 2.9.4
+
+## Notes
+- All modules must reference versions via the catalog; no hardcoded versions.
+- If new libs are required, propose minimal additions and update this file after approval.

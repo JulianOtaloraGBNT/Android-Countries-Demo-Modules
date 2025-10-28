@@ -21,4 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "CountriesDemo"
 include(":app")
- 
+include(":core:common")
+include(":core:domain")
+include(":core:data")
+include(":features:countries-data-sdk")
+include(":features:countries-ui-artifact")
