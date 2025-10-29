@@ -1,8 +1,6 @@
 package com.julianotalora.core.data.countries.mapper
 
 import com.julianotalora.core.domain.countries.model.Country
-import com.julianotalora.core.domain.countries.model.CountryFlags
-import com.julianotalora.core.domain.countries.model.CountryName
 import com.julianotalora.features.countriesdatasdk.api.CountryDto
 
 /**
@@ -15,6 +13,7 @@ import com.julianotalora.features.countriesdatasdk.api.CountryDto
  */
 fun CountryDto.toDomain(): Country {
     return Country(
+        cca3 = this.cca3,
         flagUrl = this.flags.png,
         commonName = this.name.common,
         officialName = this.name.official,

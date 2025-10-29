@@ -4,6 +4,7 @@ package com.julianotalora.core.domain.countries.model
  * Complete country domain model with all available information
  */
 data class Country(
+    val cca3: String,
     val flagUrl: String,
     val commonName: String,
     val officialName: String,
@@ -20,6 +21,7 @@ data class Country(
  * Simplified country model for list display
  */
 data class CountrySummary(
+    val cca3: String,
     val flagUrl: String,
     val commonName: String,
     val officialName: String,

@@ -53,6 +53,7 @@ fun CountriesSearchScreen(
                 else -> emptyList()
             }.map { countrySummary ->
                 CountryListElement(
+                    cca3 = countrySummary.cca3,
                     commonName = countrySummary.commonName,
                     officialName = countrySummary.officialName,
                     capital = countrySummary.capital,

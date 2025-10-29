@@ -14,7 +14,20 @@ data class CountryDto(
   val population: Long,
   val car: CarDto,
   val flags: FlagsDto
-)
+) {
+
+  val formattedCurrency: String
+    get() {
+      val firstCurrencyEntry = currencies.entries.firstOrNull()
+      return firstCurrencyEntry?.let { entry ->
+        val code = entry.key
+        val currencyName = entry.value.name
+        //"$code ($currencyName)"
+        code
+      } ?: ""
+    }
+
+}
 
 @Serializable
 data class NameDto(

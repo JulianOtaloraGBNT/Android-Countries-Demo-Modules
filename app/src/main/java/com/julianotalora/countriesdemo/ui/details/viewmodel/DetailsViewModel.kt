@@ -1,5 +1,6 @@
 package com.julianotalora.countriesdemo.ui.details.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.julianotalora.core.common.error.AppError
@@ -14,14 +15,24 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlinx.coroutines.flow.asStateFlow
 import com.julianotalora.core.common.result.Result
+import com.julianotalora.countriesdemo.ui.details.navigation.DetailsNavigation.COUNTRY_ID
 
 @HiltViewModel
 class DetailsViewModel @Inject constructor(
+    private val savedState: SavedStateHandle,
     private val getCountryDetailsUseCase: GetCountryDetailsUseCase
 ) : ViewModel() {
 
+    private val countryId = savedState.getStateFlow(COUNTRY_ID, null as String?)
+
     private val _state = MutableStateFlow<DetailsUiState>(DetailsUiState.Idle)
     val state: StateFlow<DetailsUiState> = _state.asStateFlow()
+
+    init {
+        countryId.value?.let {
+            loadCountryDetails(it)
+        }
+    }
 
     fun loadCountryDetails(cca3: String) {
         viewModelScope.launch {

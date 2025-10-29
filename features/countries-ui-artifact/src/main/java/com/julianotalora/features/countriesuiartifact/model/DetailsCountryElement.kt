@@ -1,6 +1,7 @@
 package com.julianotalora.features.countriesuiartifact.model
 
 data class DetailsCountryElement(
+    val cca3: String,
     val flagUrl: String,
     val commonName: String,
     val officialName: String,

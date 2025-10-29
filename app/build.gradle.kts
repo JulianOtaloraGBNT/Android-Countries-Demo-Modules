@@ -97,12 +97,30 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
 
-    // Testing
+    // ----------- Testing Dependencies -----------
+
+    // Unit Tests
     testImplementation(libs.junit)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockwebserver)
+    testImplementation(libs.mockk)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.coroutines.test)
+    testImplementation(kotlin("test"))
+    testImplementation(libs.androidx.core.testing) // Para ViewModels y LiveData
+    testImplementation(libs.hilt.android.testing) // Para inyección en tests
+    kaptTest(libs.hilt.compiler) // Procesador de Hilt para tests unitarios
+
+    // Instrumentation Tests (UI)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing) // Para inyección en tests de UI
+    kaptAndroidTest(libs.hilt.compiler) // Procesador de Hilt para tests de UI
+
+    // Debug
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

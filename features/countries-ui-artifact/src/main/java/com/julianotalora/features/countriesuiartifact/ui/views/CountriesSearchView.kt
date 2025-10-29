@@ -28,7 +28,6 @@ fun CountriesSearchView(
     onCountryClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    //var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -58,16 +57,15 @@ fun CountriesSearchView(
                     .padding(8.dp),
                 placeholder = { Text("Search countries") }
             )
-            // ... el resto del código de LazyColumn no cambia ...
-            // Solo necesitas agregar el modifier clickable al item
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp)
             ) {
-                items(countries, key = { it.commonName }) { country -> // <-- Usa una key para mejor rendimiento
+                items(countries, key = { it.cca3 }) { country ->
                     CountryListItem(
                         country = country,
-                        modifier = Modifier.clickable { onCountryClick(country.commonName) }
+                        modifier = Modifier.clickable { onCountryClick(country.cca3) }
                     )
                     Divider()
                 }

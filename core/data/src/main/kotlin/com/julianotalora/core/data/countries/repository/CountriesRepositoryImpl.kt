@@ -4,6 +4,7 @@ import com.julianotalora.core.common.coroutine.IoDispatcher
 import com.julianotalora.core.common.error.AppError
 import com.julianotalora.core.common.result.Result
 import com.julianotalora.core.data.countries.error.toAppError
+import com.julianotalora.core.data.countries.mapper.toCountryDetails
 import com.julianotalora.core.data.countries.mapper.toDomain
 import com.julianotalora.core.data.countries.mapper.toCountrySummaryList
 import com.julianotalora.core.domain.countries.model.CountrySummary
@@ -74,7 +75,7 @@ override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppE
 
     override suspend fun getCountryDetails(countryCode: String): Result<CountryDetails, AppError> {
         return safeApiCall {
-            countriesClient.getById(countryCode)?.toDomain() as? CountryDetails ?: throw Exception("Country details not found")
+            countriesClient.getById(countryCode)?.toCountryDetails() ?: throw Exception("Country details not found")
         }
     }
 

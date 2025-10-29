@@ -6,6 +6,7 @@ import com.julianotalora.core.domain.countries.model.CountrySummary
 
 fun CountryDto.toCountrySummary(): CountrySummary {
     return CountrySummary(
+        cca3 = this.cca3,
         flagUrl = this.flags.png,
         commonName = this.name.common,
         officialName = this.name.official,
