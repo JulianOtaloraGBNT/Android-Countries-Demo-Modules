@@ -20,12 +20,10 @@ data class Country(
  * Simplified country model for list display
  */
 data class CountrySummary(
-    val cca3: String,
-    val name: String,
+    val flagUrl: String,
+    val commonName: String,
+    val officialName: String,
     val capital: String,
-    val region: String,
-    val population: Long,
-    val flagUrl: String
 )
 
 /**

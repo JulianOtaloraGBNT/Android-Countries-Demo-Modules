@@ -43,10 +43,10 @@ fun CountriesSearchScreen(
             is CountriesUiState.Success -> {
                 val list = (state as CountriesUiState.Success).countries.map { countrySummary ->
                     CountryListElement(
-                        commonName = countrySummary.name,
-                        officialName = "", // fill as needed
-                        capital = "", // fill as needed
-                        flagUrl = "" // fill as needed
+                        commonName = countrySummary.commonName,
+                        officialName = countrySummary.officialName, // fill as needed
+                        capital = countrySummary.capital, // fill as needed
+                        flagUrl = countrySummary.flagUrl // fill as needed
                     )
                 }
                 countriesState.value = list

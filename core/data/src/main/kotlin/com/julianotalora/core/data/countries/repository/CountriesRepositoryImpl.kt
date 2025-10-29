@@ -14,6 +14,7 @@ import com.julianotalora.core.domain.countries.repository.CountriesRepository
 import com.julianotalora.features.countriesdatasdk.api.CountriesClient
 import com.julianotalora.features.countriesdatasdk.api.SdkError
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
@@ -47,17 +48,26 @@ class CountriesRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppError>> {
-        return countriesClient.observeAll()
-            .map { dtos ->
-                Result.Success(dtos.toCountrySummaryList()) as Result<List<CountrySummary>, AppError>
+
+
+override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppError>> {
+    return countriesClient.observeAll()
+        .onStart {
+            try {
+                countriesClient.refreshAll(force = false)
+            } catch (_: Exception) {
+                // Ignorar error, confiamos en datos locales
             }
-            .catch { throwable ->
-                val error = (throwable as? SdkError)?.toAppError() ?: AppError.UnknownError(throwable.message)
-                emit(Result.Error(error))
-            }
-            .flowOn(ioDispatcher)
-    }
+        }
+        .map { dtos ->
+            Result.Success(dtos.toCountrySummaryList()) as Result<List<CountrySummary>, AppError>
+        }
+        .catch { throwable ->
+            val error = (throwable as? SdkError)?.toAppError() ?: AppError.UnknownError(throwable.message)
+            emit(Result.Error(error))
+        }
+        .flowOn(ioDispatcher)
+}
 
     override fun observeSearchResults(query: String): Flow<Result<List<CountrySearchResult>, AppError>> {
         return countriesClient.observeSearch(query)

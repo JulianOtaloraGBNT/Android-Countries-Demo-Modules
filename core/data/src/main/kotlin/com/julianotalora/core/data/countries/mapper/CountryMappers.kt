@@ -6,12 +6,10 @@ import com.julianotalora.core.domain.countries.model.CountrySummary
 
 fun CountryDto.toCountrySummary(): CountrySummary {
     return CountrySummary(
-        "",
-        "",
-        "",
-        "",
-        0L,
-        "",
+        flagUrl = this.flags.png,
+        commonName = this.name.common,
+        officialName = this.name.official,
+        capital = this.capital.firstOrNull() ?: "",
     )
 }
 
