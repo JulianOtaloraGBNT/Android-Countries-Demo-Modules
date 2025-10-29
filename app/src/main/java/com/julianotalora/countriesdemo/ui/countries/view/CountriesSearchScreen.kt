@@ -33,58 +33,25 @@ fun CountriesSearchScreen(
     onCountrySelected: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    val searchQuery = remember { mutableStateOf("") }
 
-    val countriesState = remember {
-        mutableStateListOf<CountryListElement>()
-    }
-
-    LaunchedEffect(state) {
-        when (state) {
-            is CountriesUiState.Success -> {
-                val list = (state as CountriesUiState.Success).countries.map { countrySummary ->
-                    CountryListElement(
-                        commonName = countrySummary.commonName,
-                        officialName = countrySummary.officialName, // fill as needed
-                        capital = countrySummary.capital, // fill as needed
-                        flagUrl = countrySummary.flagUrl // fill as needed
-                    )
-                }
-                countriesState.clear()
-                countriesState.addAll(list)
-            }
-            is CountriesUiState.SearchResults -> {
-                val list = (state as CountriesUiState.SearchResults).results.map { searchResult ->
-                    CountryListElement(
-                        commonName = searchResult.commonName,
-                        officialName = searchResult.officialName,
-                        capital = searchResult.capital,
-                        flagUrl = searchResult.flagUrl
-                    )
-                }
-                countriesState.clear()
-                countriesState.addAll(list)
-            }
-            else -> {
-                countriesState.clear()
-            }
-        }
-    }
-
-    when (state) {
+    when (val currentState = state) {
         is CountriesUiState.Loading -> {
-            // Show loading indicator
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
         is CountriesUiState.Error -> {
-            // Show error message
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Error loading countries")
+                Text(text = "Error: ${currentState.error}")
             }
         }
-        is CountriesUiState.Success -> {
-            val list = (state as CountriesUiState.Success).countries.map { countrySummary ->
+        is CountriesUiState.Success, is CountriesUiState.SearchResults -> {
+            val countries = when (currentState) {
+                is CountriesUiState.Success -> currentState.countries
+                is CountriesUiState.SearchResults -> currentState.results
+                else -> emptyList()
+            }.map { countrySummary ->
                 CountryListElement(
                     commonName = countrySummary.commonName,
                     officialName = countrySummary.officialName,
@@ -92,31 +59,24 @@ fun CountriesSearchScreen(
                     flagUrl = countrySummary.flagUrl
                 )
             }
-            countriesState.clear()
-            countriesState.addAll(list)
+
             CountriesSearchView(
-                countries = countriesState,
+                countries = countries,
                 onSearchQueryChange = { query ->
                     viewModel.searchCountries(query)
-                }
+                },
+                onCountryClick = onCountrySelected,
+                searchQuery = searchQuery,
             )
         }
-        is CountriesUiState.SearchResults -> {
-            val list = (state as CountriesUiState.SearchResults).results.map { searchResult ->
-                CountryListElement(
-                    commonName = searchResult.commonName,
-                    officialName = searchResult.officialName,
-                    capital = searchResult.capital,
-                    flagUrl = searchResult.flagUrl
-                )
-            }
-            countriesState.clear()
-            countriesState.addAll(list)
+        else -> {
             CountriesSearchView(
-                countries = countriesState,
+                countries = emptyList(),
                 onSearchQueryChange = { query ->
                     viewModel.searchCountries(query)
-                }
+                },
+                onCountryClick = onCountrySelected,
+                searchQuery = searchQuery
             )
         }
     }
