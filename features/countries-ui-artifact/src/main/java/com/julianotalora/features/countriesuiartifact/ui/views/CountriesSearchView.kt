@@ -18,12 +18,11 @@ import kotlinx.coroutines.flow.StateFlow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountriesSearchView(
-    countriesState: StateFlow<List<CountryListElement>>,
+    countries: List<CountryListElement>,
     onSearchQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val countries by countriesState.collectAsState()
 
     Scaffold(
         topBar = {

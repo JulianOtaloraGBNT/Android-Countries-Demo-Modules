@@ -7,5 +7,6 @@ import com.julianotalora.core.domain.countries.model.CountrySummary
 sealed interface CountriesUiState {
     data object Loading : CountriesUiState
     data class Success(val countries: List<CountrySummary>) : CountriesUiState
+    data class SearchResults(val results: List<CountrySummary>, val query: String) : CountriesUiState
     data class Error(val error: AppError) : CountriesUiState
 }

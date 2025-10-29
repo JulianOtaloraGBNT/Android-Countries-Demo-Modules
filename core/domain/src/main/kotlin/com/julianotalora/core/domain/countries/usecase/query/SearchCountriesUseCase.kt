@@ -3,6 +3,7 @@ package com.julianotalora.core.domain.countries.usecase.query
 import com.julianotalora.core.common.result.Result
 import com.julianotalora.core.common.error.AppError
 import com.julianotalora.core.domain.countries.model.CountrySearchResult
+import com.julianotalora.core.domain.countries.model.CountrySummary
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -14,5 +15,5 @@ interface SearchCountriesUseCase {
      * @param query Search query string
      * @return Flow of Result containing list of CountrySearchResult
      */
-    operator fun invoke(query: String): Flow<Result<List<CountrySearchResult>, AppError>>
+    operator fun invoke(query: String): Flow<Result<List<CountrySummary>, AppError>>
 }

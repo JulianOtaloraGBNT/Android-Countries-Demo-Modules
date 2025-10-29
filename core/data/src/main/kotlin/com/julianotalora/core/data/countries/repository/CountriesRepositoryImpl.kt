@@ -62,9 +62,9 @@ override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppE
         .flowOn(ioDispatcher)
 }
 
-    override fun observeSearchResults(query: String): Flow<Result<List<CountrySearchResult>, AppError>> {
+    override fun observeSearchResults(query: String): Flow<Result<List<CountrySummary>, AppError>> {
         return countriesClient.observeSearch(query)
-            .map { dtos -> Result.Success(dtos.toDomain()) as Result<List<CountrySearchResult>, AppError> }
+            .map { dtos -> Result.Success(dtos.toCountrySummaryList()) as Result<List<CountrySummary>, AppError> }
             .catch { throwable ->
                 val error = (throwable as? SdkError)?.toAppError() ?: AppError.UnknownError(throwable.message)
                 emit(Result.Error(error))

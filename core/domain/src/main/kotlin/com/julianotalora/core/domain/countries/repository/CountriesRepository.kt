@@ -25,7 +25,7 @@ interface CountriesRepository {
      * @param query Search query string
      * @return Flow of Result containing list of CountrySearchResult
      */
-    fun observeSearchResults(query: String): Flow<Result<List<CountrySearchResult>, AppError>>
+    fun observeSearchResults(query: String): Flow<Result<List<CountrySummary>, AppError>>
     
     /**
      * Gets detailed information for a specific country
