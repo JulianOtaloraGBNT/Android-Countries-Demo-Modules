@@ -21,7 +21,7 @@ fun CountryDto.toDomain(): Country {
         region = this.region,
         subRegion = this.subregion ?: "",
         languages = this.languages.values.joinToString(", "),
-        currencies = this.currencies.values.joinToString(", "),
+        currencies = this.formattedCurrency,
         population = this.population.toString(),
         carDriverSide = this.car.side
     )

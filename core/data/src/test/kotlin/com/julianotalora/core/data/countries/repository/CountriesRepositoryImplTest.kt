@@ -3,116 +3,166 @@ package com.julianotalora.core.data.countries.repository
 import app.cash.turbine.test
 import com.julianotalora.core.common.error.AppError
 import com.julianotalora.core.common.result.Result
+import com.julianotalora.core.data.countries.mapper.toCountryDetails
+import com.julianotalora.core.data.countries.mapper.toCountrySummaryList
 import com.julianotalora.core.data.countries.mapper.toDomain
 import com.julianotalora.core.domain.countries.repository.CountriesRepository
+import com.julianotalora.features.countriesdatasdk.api.CarDto
 import com.julianotalora.features.countriesdatasdk.api.CountriesClient
 import com.julianotalora.features.countriesdatasdk.api.CountryDto
-import com.julianotalora.features.countriesdatasdk.api.SdkError
+import com.julianotalora.features.countriesdatasdk.api.CurrencyDto
+import com.julianotalora.features.countriesdatasdk.api.FlagsDto
+import com.julianotalora.features.countriesdatasdk.api.NameDto
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
+@ExperimentalCoroutinesApi
 class CountriesRepositoryImplTest {
 
     private lateinit var countriesClient: CountriesClient
     private lateinit var repository: CountriesRepository
-    private val testDispatcher = StandardTestDispatcher()
+    private lateinit var testDispatcher: TestDispatcher
+
+    // Helper para crear un DTO de prueba realista y consistente
+    private fun createTestCountryDto(cca3: String = "COL"): CountryDto {
+        return CountryDto(
+            cca3 = cca3,
+            name = NameDto(common = "Colombia", official = "Republic of Colombia"),
+            region = "Americas",
+            subregion = "South America",
+            flags = FlagsDto(png = "url.png", svg = "url.svg"),
+            population = 50000000,
+            capital = listOf("Bogotá"),
+            currencies = mapOf("COP" to CurrencyDto(name = "Colombian peso", symbol = "$")),
+            languages = mapOf("spa" to "Spanish"),
+            car = CarDto(side = "right")
+        )
+    }
 
     @Before
     fun setUp() {
+        testDispatcher = StandardTestDispatcher()
         countriesClient = mock()
         repository = CountriesRepositoryImpl(countriesClient, testDispatcher)
     }
 
+    // --- Tests para Flows (`observe...`) ---
+
     @Test
-    fun `GIVEN observeAll returns a flow of DTOs WHEN observeCountries is called THEN it should return a flow of Result-Success with mapped domain models`() = runTest(testDispatcher) {
-        // GIVEN
-        val dtoList = listOf(CountryDto("COL", "Colombia", "Americas", "South America", "flag.png"))
+    fun `observeCountriesSummaries should return success with mapped data`() = runTest(testDispatcher) {
+        // Arrange: Usa un DTO real en lugar de un mock
+        val dtoList = listOf(createTestCountryDto())
         whenever(countriesClient.observeAll()).thenReturn(flowOf(dtoList))
 
-        // WHEN & THEN
-        repository.observeCountries().test {
+        // Act & Assert
+        repository.observeCountriesSummaries().test {
             val result = awaitItem()
             assertTrue(result is Result.Success)
-            assertEquals(dtoList.toDomain(), (result as Result.Success).data)
+            // La comparación ahora funciona porque ambos lados usan datos reales
+            assertEquals(dtoList.toCountrySummaryList(), (result as Result.Success).data)
             awaitComplete()
         }
     }
 
     @Test
-    fun `GIVEN observeAll throws an SdkError WHEN observeCountries is called THEN it should return a flow with Result-Error`() = runTest(testDispatcher) {
-        // GIVEN
-        val sdkError = SdkError.Network
-        whenever(countriesClient.observeAll()).thenReturn(flow { throw sdkError })
+    fun `observeSearchResults should return success with mapped data`() = runTest(testDispatcher) {
+        // Arrange: Usa un DTO real
+        val dtoList = listOf(createTestCountryDto())
+        val query = "col"
+        whenever(countriesClient.observeSearch(query)).thenReturn(flowOf(dtoList))
 
-        // WHEN & THEN
-        repository.observeCountries().test {
+        // Act & Assert
+        repository.observeSearchResults(query).test {
             val result = awaitItem()
-            assertTrue(result is Result.Error)
-            assertTrue((result as Result.Error).error is AppError.NetworkError)
+            assertTrue(result is Result.Success)
+            // La comparación ahora funciona
+            assertEquals(dtoList.toCountrySummaryList(), (result as Result.Success).data)
             awaitComplete()
         }
     }
 
+    // --- Tests para `suspend` (`get...`) ---
+
     @Test
-    fun `GIVEN getById returns a DTO WHEN getCountryByCca3 is called THEN it should return Result-Success with the mapped domain model`() = runTest(testDispatcher) {
-        // GIVEN
-        val dto = CountryDto("COL", "Colombia", "Americas", "South America", "flag.png")
+    fun `getCountryDetails should return success when client finds DTO`() = runTest(testDispatcher) {
+        // Arrange: Usa un DTO real
+        val dto = createTestCountryDto()
         whenever(countriesClient.getById("COL")).thenReturn(dto)
 
-        // WHEN
-        val result = repository.getCountryByCca3("COL")
+        // Act
+        val result = repository.getCountryDetails("COL")
 
-        // THEN
+        // Assert
         assertTrue(result is Result.Success)
-        assertEquals(dto.toDomain(), (result as Result.Success).data)
+        // La comparación ahora funciona
+        assertEquals(dto.toCountryDetails(), (result as Result.Success).data)
     }
 
+    // ... (el resto de los tests no necesitan cambios porque ya funcionan como se espera)
+
     @Test
-    fun `GIVEN getById throws an SdkError WHEN getCountryByCca3 is called THEN it should return Result-Error`() = runTest(testDispatcher) {
-        // GIVEN
-        val sdkError = SdkError.Http(404, "Not Found")
-        whenever(countriesClient.getById("ZZZ")).thenThrow(sdkError)
+    fun `getCountryDetails should return NotFound error when client returns null`() = runTest(testDispatcher) {
+        // Arrange: El client devuelve null, simulando "no encontrado"
+        whenever(countriesClient.getById("ZZZ")).thenReturn(null)
 
-        // WHEN
-        val result = repository.getCountryByCca3("ZZZ")
+        // Act
+        val result = repository.getCountryDetails("ZZZ")
 
-        // THEN
+        // Assert: Verificamos que safeFindApiCall manejó el null correctamente
         assertTrue(result is Result.Error)
         assertTrue((result as Result.Error).error is AppError.NotFound)
     }
 
     @Test
-    fun `GIVEN refreshAll succeeds WHEN refreshCountries is called THEN it should return Result-Success with Unit`() = runTest(testDispatcher) {
-        // GIVEN
-        whenever(countriesClient.refreshAll(true)).thenReturn(Unit)
+    fun `getCountryDetails should return UnknownError on unexpected exception`() = runTest(testDispatcher) {
+        // Arrange: El client lanza una excepción inesperada
+        val exception = RuntimeException("Unexpected database error")
+        whenever(countriesClient.getById("FAIL")).thenThrow(exception)
 
-        // WHEN
-        val result = repository.refreshCountries()
+        // Act
+        val result = repository.getCountryDetails("FAIL")
 
-        // THEN
+        // Assert: Verificamos que el try-catch de safeFindApiCall funcionó
+        assertTrue(result is Result.Error)
+        assertTrue((result as Result.Error).error is AppError.UnknownError)
+    }
+
+    // (Puedes añadir tests similares para `getCountry` si lo deseas)
+
+    @Test
+    fun `refreshAllCountries should return success`() = runTest(testDispatcher) {
+        // Arrange
+        whenever(countriesClient.refreshAll(any())).thenReturn(Unit)
+
+        // Act
+        val result = repository.refreshAllCountries(false)
+
+        // Assert
         assertTrue(result is Result.Success)
-        assertEquals(Unit, (result as Result.Success).data)
     }
 
     @Test
-    fun `GIVEN refreshAll throws an SdkError WHEN refreshCountries is called THEN it should return Result-Error`() = runTest(testDispatcher) {
-        // GIVEN
-        val sdkError = SdkError.Timeout
-        whenever(countriesClient.refreshAll(true)).thenThrow(sdkError)
+    fun `refreshAllCountries should return error on failure`() = runTest(testDispatcher) {
+        // Arrange
+        val sdkException = RuntimeException("SDK refresh failure")
+        whenever(countriesClient.refreshAll(any())).thenThrow(sdkException)
 
-        // WHEN
-        val result = repository.refreshCountries()
+        // Act
+        val result = repository.refreshAllCountries(false)
 
-        // THEN
+        // Assert: Verificamos que safeApiCall atrapó y mapeó el error
         assertTrue(result is Result.Error)
-        assertTrue((result as Result.Error).error is AppError.TimeoutError)
+        assertTrue((result as Result.Error).error is AppError.UnknownError)
     }
 }

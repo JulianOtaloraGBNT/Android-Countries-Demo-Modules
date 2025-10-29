@@ -49,6 +49,23 @@ class CountriesRepositoryImpl @Inject constructor(
         }
     }
 
+    private suspend fun <DTO, DOMAIN> safeFindApiCall(
+        apiCall: suspend () -> DTO?,
+        mapper: (DTO) -> DOMAIN
+    ): Result<DOMAIN, AppError> {
+        return withContext(ioDispatcher) {
+            try {
+                val dto = apiCall()
+                if (dto == null) {
+                    Result.Error(AppError.NotFound)
+                } else {
+                    Result.Success(mapper(dto))
+                }
+            } catch (e: Exception) {
+                Result.Error(AppError.UnknownError("An unexpected error occurred: ${e.message}"))
+            }
+        }
+    }
 
 
 override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppError>> {
@@ -74,15 +91,17 @@ override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppE
     }
 
     override suspend fun getCountryDetails(countryCode: String): Result<CountryDetails, AppError> {
-        return safeApiCall {
-            countriesClient.getById(countryCode)?.toCountryDetails() ?: throw Exception("Country details not found")
-        }
+        return safeFindApiCall(
+            apiCall = { countriesClient.getById(countryCode) },
+            mapper = { it.toCountryDetails() }
+        )
     }
 
     override suspend fun getCountry(countryCode: String): Result<Country, AppError> {
-        return safeApiCall {
-            countriesClient.getById(countryCode)?.toDomain() ?: throw Exception("Country not found")
-        }
+        return safeFindApiCall(
+            apiCall = { countriesClient.getById(countryCode) },
+            mapper = { it.toDomain() }
+        )
     }
 
     override suspend fun refreshAllCountries(forceRefresh: Boolean): Result<Unit, AppError> {
