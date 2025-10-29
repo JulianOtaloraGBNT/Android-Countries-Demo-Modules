@@ -52,13 +52,6 @@ class CountriesRepositoryImpl @Inject constructor(
 
 override fun observeCountriesSummaries(): Flow<Result<List<CountrySummary>, AppError>> {
     return countriesClient.observeAll()
-        .onStart {
-            try {
-                countriesClient.refreshAll(force = false)
-            } catch (_: Exception) {
-                // Ignorar error, confiamos en datos locales
-            }
-        }
         .map { dtos ->
             Result.Success(dtos.toCountrySummaryList()) as Result<List<CountrySummary>, AppError>
         }

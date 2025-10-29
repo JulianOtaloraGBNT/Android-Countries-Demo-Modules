@@ -3,6 +3,7 @@ plugins {
   alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.ksp)
+  id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -13,6 +14,7 @@ android {
     minSdk = 24
     consumerProguardFiles("consumer-rules.pro")
     buildConfigField("String", "SDK_BASE_URL", "\"https://restcountries.com\"")
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   buildFeatures { buildConfig = true }
@@ -47,8 +49,17 @@ dependencies {
   implementation(libs.room.ktx)
   ksp(libs.room.compiler)
 
+
   // Tests (lightweight)
   testImplementation(libs.junit)
   testImplementation(libs.turbine)
   testImplementation(libs.mockwebserver)
+  testImplementation(libs.mockk)
+  testImplementation(libs.mockito.core)
+  testImplementation(libs.mockito.kotlin)
+  testImplementation(libs.coroutines.test)
+
+  // Additional test dependencies for mocking and coroutines testing
+  // Removed hardcoded versions of mockk, coroutines-test, turbine to use versions from libs.versions.toml
+  testImplementation(kotlin("test"))
 }

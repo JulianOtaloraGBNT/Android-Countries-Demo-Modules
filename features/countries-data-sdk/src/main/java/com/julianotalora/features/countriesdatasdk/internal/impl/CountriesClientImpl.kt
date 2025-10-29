@@ -16,6 +16,11 @@ import retrofit2.HttpException
 import java.io.IOException
 import toDto
 import toEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 
 class CountriesClientImpl(
     private val api: RestCountriesApi,
@@ -29,9 +34,25 @@ class CountriesClientImpl(
         private const val TTL_MILLIS = 30 * 60 * 1000L // 30 minutes
     }
 
-    override fun observeAll(): Flow<List<CountryDto>> = countryDao.observeAll().map { entities ->
-        entities.map { it.toDto() }
+// En CountriesClientImpl.kt
+
+    override fun observeAll(): Flow<List<CountryDto>> {
+        return countryDao.observeAll()
+            .map { entities -> entities.map { it.toDto() } }
+            .onStart {
+                // Cuando la colección del flow comienza, intenta refrescar en segundo plano.
+                try {
+                    // Usamos force = false para respetar el TTL (Time To Live).
+                    refreshAll(force = false)
+                } catch (e: SdkError) {
+                    // Si el refresco falla (ej. error de red), lo ignoramos deliberadamente.
+                    // El usuario seguirá viendo los datos cacheados que emite el flow.
+                    // Podrías registrar este error en un logger si lo necesitas.
+                    // Timber.w(e, "Failed to refresh countries in background, showing cached data.")
+                }
+            }
     }
+
 
     override suspend fun refreshAll(force: Boolean) {
         withContext(ioDispatcher) {
